@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Text.Encodings.Web;
 using AntDesign;
+using AntDesign.Filters;
 using AntDesign.JsInterop;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -35,7 +36,8 @@ namespace Microsoft.Extensions.DependencyInjection
             services.TryAddScoped<IConfirmService>(provider => provider.GetRequiredService<ConfirmService>());
             services.TryAddScoped<ImageService>();
             services.TryAddScoped<ConfigService>();
-            services.TryAddSingleton<ReuseTabsService>();
+            services.TryAddScoped<ReuseTabsService>();
+            services.TryAddScoped<IFieldFilterTypeResolver, DefaultFieldFilterTypeResolver>();
 
             CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.CurrentCulture;
 

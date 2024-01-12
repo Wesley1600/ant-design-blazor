@@ -258,6 +258,9 @@ namespace AntDesign
 
         private async Task Clear()
         {
+            if (Disabled)
+                return;
+
             CurrentValue = default;
             IsFocused = true;
             _inputString = null;
@@ -452,6 +455,8 @@ namespace AntDesign
                 _compositionInputting = false;
             }
 
+            ChangeValue(true);
+
             if (OnBlur.HasDelegate)
             {
                 await OnBlur.InvokeAsync(e);
@@ -486,7 +491,7 @@ namespace AntDesign
             builder.OpenElement(31, "span");
             builder.AddAttribute(32, "class", $"{PrefixCls}-clear-icon " +
                 (Suffix != null ? $"{PrefixCls}-clear-icon-has-suffix " : "") +
-                (string.IsNullOrEmpty(_inputString) ? $"{PrefixCls}-clear-icon-hidden " : ""));
+                (string.IsNullOrEmpty(_inputString) || Disabled ? $"{PrefixCls}-clear-icon-hidden " : ""));
 
             builder.OpenComponent<Icon>(33);
 
@@ -544,7 +549,7 @@ namespace AntDesign
                 return;
             }
 
-            if (!_compositionInputting)
+            if (!_compositionInputting && CurrentValueAsString != _inputString)
             {
                 CurrentValueAsString = _inputString;
             }
@@ -705,7 +710,7 @@ namespace AntDesign
 
             if (FormItem?.IsRequiredByValidation ?? false)
             {
-                builder.AddAttribute(65, "required", "required");
+                builder.AddAttribute(65, "aria-required", true);
             }
 
             // onchange 和 onblur 事件会导致点击 OnSearch 按钮时不触发 Click 事件，暂时取消这两个事件

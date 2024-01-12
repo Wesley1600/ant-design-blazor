@@ -59,6 +59,8 @@ namespace AntDesign
 
         internal RenderFragment FeedbackIcon => FormItem?.FeedbackIcon;
 
+        internal ClassMapper CurrentClassMapper => ClassMapper;
+
         /// <summary>
         /// Overlay adjustment strategy (when for example browser resize is happening)
         /// </summary>
@@ -94,10 +96,10 @@ namespace AntDesign
 
         /// <summary>
         /// Delays the processing of the search input event until the user has stopped
-        /// typing for a predetermined amount of time
+        /// typing for a predetermined amount of time. Default to 250ms.
         /// </summary>
         [Parameter]
-        public int SearchDebounceMilliseconds { get; set; }
+        public int SearchDebounceMilliseconds { get; set; } = 250;
 
         /// <summary>
         /// Show loading indicator. You have to write the loading logic on your own.
@@ -444,7 +446,7 @@ namespace AntDesign
         ///     Returns a true/false if the placeholder should be displayed or not.
         /// </summary>
         /// <returns>true if SelectOptions has no values and the searchValue is empty; otherwise false </returns>
-        protected bool ShowPlaceholder => !HasValue && string.IsNullOrEmpty(_searchValue);
+        //protected bool ShowPlaceholder => !HasValue && string.IsNullOrEmpty(_searchValue);
 
         /// <summary>
         ///     The Method is called every time if the value of the @bind-Values was changed by the two-way binding.
@@ -751,6 +753,7 @@ namespace AntDesign
                 {
                     SelectedOptionItems.Add(selectOption);
                 }
+
                 selectOption.IsSelected = true;
                 CurrentValue = selectOption.Value;
                 InvokeOnSelectedItemChanged(selectOption);
@@ -980,7 +983,7 @@ namespace AntDesign
         ///     Check if Focused property is False; Set the Focused property to true, change the
         ///     style and set the Focus on the Input element via DOM. It also invoke the OnFocus Action.
         /// </summary>
-        protected async Task SetInputFocusAsync()
+        internal async Task SetInputFocusAsync()
         {
             if (!Focused)
             {
@@ -1001,11 +1004,6 @@ namespace AntDesign
             {
                 await _dropDown.GetOverlayComponent().UpdatePosition();
             }
-        }
-
-        internal async Task OnArrowClick(MouseEventArgs args)
-        {
-            await _dropDown.OnClickDiv(args);
         }
 
         /// <summary>

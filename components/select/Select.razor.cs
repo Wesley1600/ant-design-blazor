@@ -18,6 +18,11 @@ using OneOf;
 
 namespace AntDesign
 {
+#if NET6_0_OR_GREATER
+    [CascadingTypeParameter(nameof(TItem))]
+    [CascadingTypeParameter(nameof(TItemValue))]
+#endif
+
     public partial class Select<TItemValue, TItem> : SelectBase<TItemValue, TItem>
     {
         #region Parameters
@@ -310,6 +315,20 @@ namespace AntDesign
         }
 
         /// <summary>
+        /// Specifies the label property in the option object. If use this property, should not use <see cref="LabelName"/>
+        /// </summary>
+        [Parameter] public Func<TItem, string> LabelProperty { get => _getLabel; set => _getLabel = value; }
+
+        /// <summary>
+        /// Specifies the value property in the option object. If use this property, should not use <see cref="ValueName"/>
+        /// </summary>
+        [Parameter] public Func<TItem, TItemValue> ValueProperty { get => _getValue; set => _getValue = value; }
+
+        /// <summary>
+        /// Specifies predicate for disabled options
+        /// </summary>
+        [Parameter] public Func<TItem, bool> DisabledPredicate { get => _getDisabled; set => _getDisabled = value; }
+        /// <summary>
         /// Used when Mode =  default - The value is used during initialization and when pressing the Reset button within Forms.
         /// </summary>
         [Parameter]
@@ -328,7 +347,7 @@ namespace AntDesign
         }
 
         [Parameter] public string ListboxStyle { get; set; } = "display: flex; flex-direction: column;";
-        
+
         #endregion Parameters
 
         [Inject] private IDomEventListener DomEventListener { get; set; }
@@ -357,7 +376,7 @@ namespace AntDesign
         private bool _optionsHasInitialized;
         private bool _defaultValueApplied;
         private bool _defaultActiveFirstOptionApplied;
-        private bool _waittingStateChange;
+        private bool _waitingForStateChange;
         private bool _isValueEnum;
         private bool _isToken;
         private bool _defaultActiveFirstOption;
@@ -402,7 +421,7 @@ namespace AntDesign
 
         protected override void OnInitialized()
         {
-            if (SelectOptions == null && typeof(TItemValue) != typeof(TItem) && string.IsNullOrWhiteSpace(ValueName))
+            if (SelectOptions == null && typeof(TItemValue) != typeof(TItem) && ValueProperty == null && string.IsNullOrWhiteSpace(ValueName))
             {
                 throw new ArgumentNullException(nameof(ValueName));
             }
@@ -440,10 +459,13 @@ namespace AntDesign
             if (_valueHasChanged && _optionsHasInitialized)
             {
                 _valueHasChanged = false;
-                OnValueChange(_selectedValue);
                 if (Form?.ValidateOnChange == true)
                 {
                     EditContext?.NotifyFieldChanged(FieldIdentifier);
+                }
+                else
+                {
+                    OnValueChange(_selectedValue);
                 }
             }
             base.OnParametersSet();
@@ -591,9 +613,9 @@ namespace AntDesign
                 _optionsHasInitialized = true;
             }
 
-            if (_waittingStateChange)
+            if (_waitingForStateChange)
             {
-                _waittingStateChange = false;
+                _waitingForStateChange = false;
                 StateHasChanged();
             }
 
@@ -685,7 +707,7 @@ namespace AntDesign
                         isSelected = _selectedValues.Contains(value);
                 }
 
-                if (!string.IsNullOrWhiteSpace(DisabledName))
+                if (_getDisabled != default)
                     disabled = _getDisabled(item);
 
                 if (!string.IsNullOrWhiteSpace(GroupName))
@@ -788,7 +810,7 @@ namespace AntDesign
         protected async Task SetDropdownStyleAsync()
         {
             string maxWidth = "", minWidth = "", definedWidth = "";
-            var domRect = await JsInvokeAsync<DomRect>(JSInteropConstants.GetBoundingClientRect, Ref);
+            var domRect = await JsInvokeAsync<DomRect>(JSInteropConstants.GetBoundingClientRect, _selectContent.Ref);
             var width = domRect.Width.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
             minWidth = $"min-width: {width}px;";
             if (DropdownMatchSelectWidth.IsT0 && DropdownMatchSelectWidth.AsT0)
@@ -912,7 +934,7 @@ namespace AntDesign
                     if (HideSelected)
                         result.IsHidden = true;
 
-                    _waittingStateChange = true;
+                    _waitingForStateChange = true;
                     if (SelectedOptionItems.Count == 0)
                     {
                         SelectedOptionItems.Add(result);
@@ -920,13 +942,12 @@ namespace AntDesign
                     else
                         SelectedOptionItems[0] = result;
                     await ValueChanged.InvokeAsync(result.Value);
-                }
-                else
-                {
-                    await SetDefaultActiveFirstItemAsync();
+
+                    _defaultValueApplied = true;
+                    return;
                 }
             }
-            else if (DefaultActiveFirstOption)
+            if (DefaultActiveFirstOption)
             {
                 await SetDefaultActiveFirstItemAsync();
             }
@@ -973,7 +994,7 @@ namespace AntDesign
                 }
                 else
                 {
-                    _waittingStateChange = true;
+                    _waitingForStateChange = true;
 
                     await InvokeValuesChanged();
                 }
@@ -1206,7 +1227,7 @@ namespace AntDesign
                 await TokenizeSearchedPhrase(_searchValue);
             }
 
-            if (!string.IsNullOrWhiteSpace(_searchValue))
+            if (!string.IsNullOrEmpty(_searchValue))
             {
                 FilterOptionItems(_searchValue);
             }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using AntDesign.Filters;
 using AntDesign.TableModels;
 
 namespace AntDesign
@@ -15,11 +16,15 @@ namespace AntDesign
 
         QueryModel GetQueryModel();
 
-        void SetSelection(string[] keys);
+        void SetSelection(ICollection<string> keys);
 
         void SelectAll();
 
         void UnselectAll();
+
+        void ExpandAll();
+
+        void CollapseAll();
 
         internal TableLocale Locale { get; }
 
@@ -43,6 +48,8 @@ namespace AntDesign
 
         internal SortDirection[] SortDirections { get; }
 
+        internal void SetSelection(ISelectionColumn selectItem);
+
         internal bool AllSelected { get; }
 
         internal bool AnySelected { get; }
@@ -51,7 +58,7 @@ namespace AntDesign
 
         internal bool HasRowTemplate { get; }
 
-        internal void SelectionChanged();
+        //internal void SelectionChanged();
 
         internal void OnExpandChange(RowData rowData);
 
@@ -72,5 +79,11 @@ namespace AntDesign
         internal void AddSummaryRow(SummaryRow summaryRow);
 
         internal void OnColumnInitialized();
+
+        IFieldFilterTypeResolver FieldFilterTypeResolver { get; }
+
+        internal void AddGroupColumn(IFieldColumn column);
+
+        internal void RemoveGroupColumn(IFieldColumn column);
     }
 }

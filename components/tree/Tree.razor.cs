@@ -16,8 +16,8 @@ namespace AntDesign
 {
     public partial class Tree<TItem> : AntDomComponentBase
     {
-        [CascadingParameter(Name = "IsTreeSelect")]
-        public bool IsTreeSelect { get; set; }
+        [CascadingParameter(Name = "TreeSelect")]
+        public TreeSelect<TItem> TreeSelect { get; set; }
 
         #region fields
 
@@ -30,6 +30,8 @@ namespace AntDesign
         /// All the checked nodes
         /// </summary>
         private ConcurrentDictionary<long, TreeNode<TItem>> _checkedNodes = new ConcurrentDictionary<long, TreeNode<TItem>>();
+
+        private bool _nodeHasChanged;
 
         #endregion fields
 
@@ -139,10 +141,24 @@ namespace AntDesign
         /// Add a node
         /// </summary>
         /// <param name="treeNode"></param>
-        internal void AddNode(TreeNode<TItem> treeNode)
+        internal void AddChildNode(TreeNode<TItem> treeNode)
         {
             treeNode.NodeIndex = ChildNodes.Count;
             ChildNodes.Add(treeNode);
+        }
+
+        internal void AddNode(TreeNode<TItem> treeNode)
+        {
+            _allNodes.Add(treeNode);
+            _nodeHasChanged = true;
+            CallAfterRender(async () =>
+            {
+                if (_nodeHasChanged)
+                {
+                    _nodeHasChanged = false;
+                    TreeSelect?.UpdateValueAfterDataSourceChanged();
+                }
+            });
         }
 
         #endregion Node
@@ -391,7 +407,7 @@ namespace AntDesign
             else
                 _checkedNodes.TryRemove(treeNode.NodeId, out TreeNode<TItem> _);
 
-            _checkedKeys = _checkedNodes.Select(x => x.Value.Key).ToArray();
+            _checkedKeys = _checkedNodes.OrderBy(x => x.Value.NodeId).Select(x => x.Value.Key).ToArray();
 
             if (!old.SequenceEqual(_checkedKeys) && CheckedKeysChanged.HasDelegate)
                 CheckedKeysChanged.InvokeAsync(_checkedKeys);
@@ -441,7 +457,7 @@ namespace AntDesign
         {
             if (string.IsNullOrWhiteSpace(_searchValue))
             {
-                _allNodes.ForEach(m => { _ = m.Expand(true); m.Matched = false; });
+                _allNodes.ForEach(m => { _ = m.Expand(true); m.Matched = false; m.Hidden = false; });
                 return;
             }
 
@@ -685,6 +701,21 @@ namespace AntDesign
             return base.OnFirstAfterRenderAsync();
         }
 
+        public override async Task SetParametersAsync(ParameterView parameters)
+        {
+            var isChanged = (parameters.IsParameterChanged(nameof(SelectedKeys), SelectedKeys) ||
+                 parameters.IsParameterChanged(nameof(CheckedKeys), CheckedKeys) ||
+                 parameters.IsParameterChanged(nameof(ExpandedKeys), ExpandedKeys)
+                 );
+
+            await base.SetParametersAsync(parameters);
+
+            if (isChanged)
+            {
+                UpdateState();
+            }
+        }
+
         /// <summary>
         /// Get TreeNode from Key
         /// </summary>
@@ -777,7 +808,7 @@ namespace AntDesign
 
         internal async Task OnNodeExpand(TreeNode<TItem> node, bool expanded, MouseEventArgs args)
         {
-            var expandedKeys = _allNodes.Select(x => x.Key).ToArray();
+            var expandedKeys = _allNodes.Where(x => x.Expanded).Select(x => x.Key).ToArray();
             if (OnNodeLoadDelayAsync.HasDelegate && expanded == true)
             {
                 node.SetLoading(true);
@@ -818,7 +849,7 @@ namespace AntDesign
         {
             if (firstRender)
             {
-                if (IsTreeSelect)
+                if (TreeSelect is not null)
                 {
                     IsCtrlKeyDown = true;
                 }
@@ -852,6 +883,16 @@ namespace AntDesign
             DomEventListener?.Dispose();
 
             base.Dispose(disposing);
+        }
+
+        private void UpdateState()
+        {
+            foreach (var node in _allNodes)
+            {
+                node.SetSingleNodeChecked(CheckedKeys?.Contains(node.Key) == true);
+                node.Selected = SelectedKeys?.Contains(node.Key) == true;
+                node.Expanded = ExpandedKeys?.Contains(node.Key) == true;
+            }
         }
     }
 }
